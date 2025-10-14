@@ -355,6 +355,38 @@
         "name":"task-special-port",
         "arg_process_fn":"get_filter_arg_task_special_port"
     },
+    "0x5a":{
+        "name":"fileprovider-syncroot-path",
+        "arg_process_fn":"get_filter_arg_string_by_offset_no_skip"
+    },
+    "0x5b":{
+        "name": "mount-root-path",
+        "arg_process_fn": "get_filter_arg_string_by_offset_no_skip"
+    },
+    "0x5c":{
+        "name": "codesigning-operation",
+        "arg_process_fn": "get_filter_arg_codesigning_operation"
+    },
+    "0x5d":{
+        "name": "profile-flag",
+        "arg_process_fn": "get_filter_arg_integer"
+    },
+    "0x5e":{
+        "name": "kas-info-selector",
+        "arg_process_fn": "get_filter_arg_kas_info_selector"
+    },
+    "0x5f":{
+        "name": "mach-exception-behavior",
+        "arg_process_fn": "get_filter_arg_mach_exception_behavior"
+    },
+    "0x60":{
+        "name": "mach-exception-type",
+        "arg_process_fn": "get_filter_arg_mach_exception_type"
+    },
+    "0x61":{
+        "name": "check-operation",
+        "arg_process_fn": "get_filter_arg_string_by_offset"
+    },
     "0x81":{
         "name":"regex",
         "arg_process_fn":"get_filter_arg_regex_by_id"
@@ -426,5 +458,21 @@
     "0xa7":{
         "name":"process-name-regex",
         "arg_process_fn":"get_filter_arg_regex_by_id"
+    },
+    "0xc1":{
+        "name":"syscall-number-bitmask",
+        "arg_process_fn":"get_filter_arg_syscall_number_bitmask"
+    },
+    "0xce":{
+        "name":"fcntl-command-bitmask",
+        "arg_process_fn":"get_filter_arg_fnctl_bitmask"
+    },
+    "0xcb":{
+        "name":"machtrap-number-bitmask",
+        "arg_process_fn":"get_filter_arg_machtrap_bitmask"
+    },
+    "0xd2":{
+        "name":"mac-syscall-number-bitmask",
+        "arg_process_fn":"get_filter_arg_mac_syscall_number_bitmask"
     }
 }

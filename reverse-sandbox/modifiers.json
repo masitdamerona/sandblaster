@@ -580,12 +580,30 @@
             "id": 18
         },
         {
+            "action": 2,
+            "action_flag": 8192,
+            "action_mask": 8192,
+            "aliases": 0,
+            "id": 19,
+            "type": 1,
+            "name": "autobox-telemetry"
+        },
+        {
+            "action": 8,
+            "action_flag": 1,
+            "action_mask": 1,
+            "aliases": 0,
+            "id": 20,
+            "type": 1,
+            "name": "restrictive-default"
+        },
+        {
             "name": "message-filter",
             "action": 2,
             "type": 4,
             "action_mask": 0,
             "action_flag": 0,
-            "id": 19
+            "id": 21
         }
     ]
 }
