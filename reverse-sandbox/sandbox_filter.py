@@ -39,22 +39,24 @@ def get_filter_arg_string_by_offset_with_type(f, offset):
     """Extract string from given offset and consider type byte."""
     global keep_builtin_filters
     global base_addr
-    
+
     f.seek(offset * 8 + base_addr)
+
     len = struct.unpack("<H", f.read(2))[0]
     f.seek(offset * 8 + base_addr)
-    s = f.read(2+len)
+    s = f.read(2 + len)
     logger.info("binary string is " + s.hex())
     ss = reverse_string.SandboxString()
     myss = ss.parse_byte_string(s[2:], global_vars)
     append = "literal"
     actual_string = ""
+
     for sss in myss:
         actual_string = actual_string + sss + " "
     actual_string = actual_string[:-1]
     logger.info("actual string is " + actual_string)
-    return (append, myss)
 
+    return (append, myss)
 
 def get_filter_arg_string_by_offset_no_skip(f, offset):
     """Extract string from given offset and ignore type byte."""
@@ -165,6 +167,7 @@ def get_filter_arg_regex_by_id(f, regex_id):
     global keep_builtin_filters
     return_string = ""
     global regex_list
+    # regex_list = list("regex_list")
     for regex in regex_list[regex_id]:
         if re.match("^/com\\\.apple\\\.sandbox\$", regex) and keep_builtin_filters == False:
             return "###$$$***"
@@ -831,6 +834,520 @@ def get_filter_arg_syscall_number(f, arg):
     else:
         return '%d' % arg
 
+def get_filter_arg_syscall_mach_number_bitmask(f, offset):
+
+    global keep_builtin_filters
+    global base_addr
+
+    f.seek(offset * 8 + base_addr)
+    might_be_type = struct.unpack("<H", f.read(2))[0]
+    bitmap_length = struct.unpack("<H", f.read(2))[0]
+    bitmap = f.read(bitmap_length)
+
+    enabled_syscalls = []
+    for byte_index, byte in enumerate(bitmap):
+        for bit_position in range(0, 8, 2):
+            mask = (byte >> bit_position) & 0b11
+            if mask:
+                syscall_number = (byte_index * 8) + mask
+                syscall_name = f"syscall_mach_number_{syscall_number}"
+                enabled_syscalls.append(syscall_name)
+
+def get_filter_arg_mac_syscall_number_bitmask(f, offset):
+
+    global keep_builtin_filters
+    global base_addr
+
+    f.seek(offset * 8 + base_addr)
+    might_be_type = struct.unpack("<H", f.read(2))[0]
+    bitmap_length = struct.unpack("<H", f.read(2))[0]
+    bitmap = f.read(bitmap_length)
+
+    enabled_syscalls = []
+    for byte_index, byte in enumerate(bitmap):
+        for bit_position in range(0, 8, 2):
+            mask = (byte >> bit_position) & 0b11
+            if mask:
+                syscall_number = (byte_index * 8) + mask
+                syscall_name = f"mac_syscall_number_{syscall_number}"
+                enabled_syscalls.append(syscall_name)
+    return " | ".join(enabled_syscalls)
+
+def get_filter_arg_syscall_number_bitmask(f, offset):
+    """Convert integer to syscall number type string."""
+    global keep_builtin_filters
+    global base_addr
+
+    arg_types = {
+            0: 'SYS_syscall',
+            1: 'SYS_exit',
+            2: 'SYS_fork',
+            3: 'SYS_read',
+            4: 'SYS_write',
+            5: 'SYS_open',
+            8: 'PERSONA_ENTERPRISE',
+            6: 'SYS_close',
+            7: 'SYS_wait4',
+            9: 'SYS_link',
+            10: 'SYS_unlink',
+            12: 'SYS_chdir',
+            13: 'SYS_fchdir',
+            14: 'SYS_mknod',
+            15: 'SYS_chmod',
+            16: 'SYS_chown',
+            18: 'SYS_getfsstat',
+            20: 'SYS_getpid',
+            23: 'SYS_setuid',
+            24: 'SYS_getuid',
+            25: 'SYS_geteuid',
+            26: 'SYS_ptrace',
+            27: 'SYS_recvmsg',
+            28: 'SYS_sendmsg',
+            29: 'SYS_recvfrom',
+            30: 'SYS_accept',
+            31: 'SYS_getpeername',
+            32: 'SYS_getsockname',
+            33: 'SYS_access',
+            34: 'SYS_chflags',
+            35: 'SYS_fchflags',
+            36: 'SYS_sync',
+            37: 'SYS_kill',
+            39: 'SYS_getppid',
+            41: 'SYS_dup',
+            42: 'SYS_pipe',
+            43: 'SYS_getegid',
+            46: 'SYS_sigaction',
+            47: 'SYS_getgid',
+            48: 'SYS_sigprocmask',
+            49: 'SYS_getlogin',
+            50: 'SYS_setlogin',
+            51: 'SYS_acct',
+            52: 'SYS_sigpending',
+            53: 'SYS_sigaltstack',
+            54: 'SYS_ioctl',
+            55: 'SYS_reboot',
+            56: 'SYS_revoke',
+            57: 'SYS_symlink',
+            58: 'SYS_readlink',
+            59: 'SYS_execve',
+            60: 'SYS_umask',
+            61: 'SYS_chroot',
+            63: 'SYS_invalid',
+            65: 'SYS_msync',
+            66: 'SYS_vfork',
+            73: 'SYS_munmap',
+            74: 'SYS_mprotect',
+            75: 'SYS_madvise',
+            78: 'SYS_mincore',
+            79: 'SYS_getgroups',
+            80: 'SYS_setgroups',
+            81: 'SYS_getpgrp',
+            82: 'SYS_setpgid',
+            83: 'SYS_setitimer',
+            85: 'SYS_swapon',
+            86: 'SYS_getitimer',
+            89: 'SYS_getdtablesize',
+            90: 'SYS_dup2',
+            92: 'SYS_fcntl',
+            93: 'SYS_select',
+            95: 'SYS_fsync',
+            96: 'SYS_setpriority',
+            97: 'SYS_socket',
+            98: 'SYS_connect',
+            100: 'SYS_getpriority',
+            104: 'SYS_bind',
+            105: 'SYS_setsockopt',
+            106: 'SYS_listen',
+            111: 'SYS_sigsuspend',
+            116: 'SYS_gettimeofday',
+            117: 'SYS_getrusage',
+            118: 'SYS_getsockopt',
+            120: 'SYS_readv',
+            121: 'SYS_writev',
+            122: 'SYS_settimeofday',
+            123: 'SYS_fchown',
+            124: 'SYS_fchmod',
+            126: 'SYS_setreuid',
+            127: 'SYS_setregid',
+            128: 'SYS_rename',
+            131: 'SYS_flock',
+            132: 'SYS_mkfifo',
+            133: 'SYS_sendto',
+            134: 'SYS_shutdown',
+            135: 'SYS_socketpair',
+            136: 'SYS_mkdir',
+            137: 'SYS_rmdir',
+            138: 'SYS_utimes',
+            139: 'SYS_futimes',
+            140: 'SYS_adjtime',
+            142: 'SYS_gethostuuid',
+            147: 'SYS_setsid',
+            151: 'SYS_getpgid',
+            152: 'SYS_setprivexec',
+            153: 'SYS_pread',
+            154: 'SYS_pwrite',
+            155: 'SYS_nfssvc',
+            157: 'SYS_statfs',
+            158: 'SYS_fstatfs',
+            159: 'SYS_unmount',
+            161: 'SYS_getfh',
+            165: 'SYS_quotactl',
+            167: 'SYS_mount',
+            169: 'SYS_csops',
+            170: 'SYS_csops_audittoken',
+            173: 'SYS_waitid',
+            177: 'SYS_kdebug_typefilter',
+            178: 'SYS_kdebug_trace_string',
+            179: 'SYS_kdebug_trace64',
+            180: 'SYS_kdebug_trace',
+            181: 'SYS_setgid',
+            182: 'SYS_setegid',
+            183: 'SYS_seteuid',
+            184: 'SYS_sigreturn',
+            186: 'SYS_thread_selfcounts',
+            187: 'SYS_fdatasync',
+            188: 'SYS_stat',
+            189: 'SYS_fstat',
+            190: 'SYS_lstat',
+            191: 'SYS_pathconf',
+            192: 'SYS_fpathconf',
+            194: 'SYS_getrlimit',
+            195: 'SYS_setrlimit',
+            196: 'SYS_getdirentries',
+            197: 'SYS_mmap',
+            199: 'SYS_lseek',
+            200: 'SYS_truncate',
+            201: 'SYS_ftruncate',
+            202: 'SYS_sysctl',
+            203: 'SYS_mlock',
+            204: 'SYS_munlock',
+            205: 'SYS_undelete',
+            216: 'SYS_open_dprotected_np',
+            217: 'SYS_fsgetpath_ext',
+            218: 'SYS_openat_dprotected_np',
+            220: 'SYS_getattrlist',
+            221: 'SYS_setattrlist',
+            222: 'SYS_getdirentriesattr',
+            223: 'SYS_exchangedata',
+            225: 'SYS_searchfs',
+            226: 'SYS_delete',
+            227: 'SYS_copyfile',
+            228: 'SYS_fgetattrlist',
+            229: 'SYS_fsetattrlist',
+            230: 'SYS_poll',
+            234: 'SYS_getxattr',
+            235: 'SYS_fgetxattr',
+            236: 'SYS_setxattr',
+            237: 'SYS_fsetxattr',
+            238: 'SYS_removexattr',
+            239: 'SYS_fremovexattr',
+            240: 'SYS_listxattr',
+            241: 'SYS_flistxattr',
+            242: 'SYS_fsctl',
+            243: 'SYS_initgroups',
+            244: 'SYS_posix_spawn',
+            245: 'SYS_ffsctl',
+            248: 'SYS_fhopen',
+            250: 'SYS_minherit',
+            251: 'SYS_semsys',
+            252: 'SYS_msgsys',
+            253: 'SYS_shmsys',
+            254: 'SYS_semctl',
+            255: 'SYS_semget',
+            256: 'SYS_semop',
+            258: 'SYS_msgctl',
+            259: 'SYS_msgget',
+            260: 'SYS_msgsnd',
+            261: 'SYS_msgrcv',
+            262: 'SYS_shmat',
+            263: 'SYS_shmctl',
+            264: 'SYS_shmdt',
+            265: 'SYS_shmget',
+            266: 'SYS_shm_open',
+            267: 'SYS_shm_unlink',
+            268: 'SYS_sem_open',
+            269: 'SYS_sem_close',
+            270: 'SYS_sem_unlink',
+            271: 'SYS_sem_wait',
+            272: 'SYS_sem_trywait',
+            273: 'SYS_sem_post',
+            274: 'SYS_sysctlbyname',
+            277: 'SYS_open_extended',
+            278: 'SYS_umask_extended',
+            279: 'SYS_stat_extended',
+            280: 'SYS_lstat_extended',
+            281: 'SYS_fstat_extended',
+            282: 'SYS_chmod_extended',
+            283: 'SYS_fchmod_extended',
+            284: 'SYS_access_extended',
+            285: 'SYS_settid',
+            286: 'SYS_gettid',
+            287: 'SYS_setsgroups',
+            288: 'SYS_getsgroups',
+            289: 'SYS_setwgroups',
+            290: 'SYS_getwgroups',
+            291: 'SYS_mkfifo_extended',
+            292: 'SYS_mkdir_extended',
+            293: 'SYS_identitysvc',
+            294: 'SYS_shared_region_check_np',
+            296: 'SYS_vm_pressure_monitor',
+            297: 'SYS_psynch_rw_longrdlock',
+            298: 'SYS_psynch_rw_yieldwrlock',
+            299: 'SYS_psynch_rw_downgrade',
+            300: 'SYS_psynch_rw_upgrade',
+            301: 'SYS_psynch_mutexwait',
+            302: 'SYS_psynch_mutexdrop',
+            303: 'SYS_psynch_cvbroad',
+            304: 'SYS_psynch_cvsignal',
+            305: 'SYS_psynch_cvwait',
+            306: 'SYS_psynch_rw_rdlock',
+            307: 'SYS_psynch_rw_wrlock',
+            308: 'SYS_psynch_rw_unlock',
+            309: 'SYS_psynch_rw_unlock2',
+            310: 'SYS_getsid',
+            311: 'SYS_settid_with_pid',
+            312: 'SYS_psynch_cvclrprepost',
+            313: 'SYS_aio_fsync',
+            314: 'SYS_aio_return',
+            315: 'SYS_aio_suspend',
+            316: 'SYS_aio_cancel',
+            317: 'SYS_aio_error',
+            318: 'SYS_aio_read',
+            319: 'SYS_aio_write',
+            320: 'SYS_lio_listio',
+            322: 'SYS_iopolicysys',
+            323: 'SYS_process_policy',
+            324: 'SYS_mlockall',
+            325: 'SYS_munlockall',
+            327: 'SYS_issetugid',
+            328: 'SYS___pthread_kill',
+            329: 'SYS___pthread_sigmask',
+            330: 'SYS___sigwait',
+            331: 'SYS___disable_threadsignal',
+            332: 'SYS___pthread_markcancel',
+            333: 'SYS___pthread_canceled',
+            334: 'SYS___semwait_signal',
+            336: 'SYS_proc_info',
+            337: 'SYS_sendfile',
+            338: 'SYS_stat64',
+            339: 'SYS_fstat64',
+            340: 'SYS_lstat64',
+            341: 'SYS_stat64_extended',
+            342: 'SYS_lstat64_extended',
+            343: 'SYS_fstat64_extended',
+            344: 'SYS_getdirentries64',
+            345: 'SYS_statfs64',
+            346: 'SYS_fstatfs64',
+            347: 'SYS_getfsstat64',
+            348: 'SYS___pthread_chdir',
+            349: 'SYS___pthread_fchdir',
+            350: 'SYS_audit',
+            351: 'SYS_auditon',
+            353: 'SYS_getauid',
+            354: 'SYS_setauid',
+            357: 'SYS_getaudit_addr',
+            358: 'SYS_setaudit_addr',
+            359: 'SYS_auditctl',
+            360: 'SYS_bsdthread_create',
+            361: 'SYS_bsdthread_terminate',
+            362: 'SYS_kqueue',
+            363: 'SYS_kevent',
+            364: 'SYS_lchown',
+            366: 'SYS_bsdthread_register',
+            367: 'SYS_workq_open',
+            368: 'SYS_workq_kernreturn',
+            369: 'SYS_kevent64',
+            372: 'SYS_thread_selfid',
+            373: 'SYS_ledger',
+            374: 'SYS_kevent_qos',
+            375: 'SYS_kevent_id',
+            380: 'SYS___mac_execve',
+            381: 'SYS___mac_syscall',
+            382: 'SYS___mac_get_file',
+            383: 'SYS___mac_set_file',
+            384: 'SYS___mac_get_link',
+            385: 'SYS___mac_set_link',
+            386: 'SYS___mac_get_proc',
+            387: 'SYS___mac_set_proc',
+            388: 'SYS___mac_get_fd',
+            389: 'SYS___mac_set_fd',
+            390: 'SYS___mac_get_pid',
+            394: 'SYS_pselect',
+            395: 'SYS_pselect_nocancel',
+            396: 'SYS_read_nocancel',
+            397: 'SYS_write_nocancel',
+            398: 'SYS_open_nocancel',
+            399: 'SYS_close_nocancel',
+            400: 'SYS_wait4_nocancel',
+            401: 'SYS_recvmsg_nocancel',
+            402: 'SYS_sendmsg_nocancel',
+            403: 'SYS_recvfrom_nocancel',
+            404: 'SYS_accept_nocancel',
+            405: 'SYS_msync_nocancel',
+            406: 'SYS_fcntl_nocancel',
+            407: 'SYS_select_nocancel',
+            408: 'SYS_fsync_nocancel',
+            409: 'SYS_connect_nocancel',
+            410: 'SYS_sigsuspend_nocancel',
+            411: 'SYS_readv_nocancel',
+            412: 'SYS_writev_nocancel',
+            413: 'SYS_sendto_nocancel',
+            414: 'SYS_pread_nocancel',
+            415: 'SYS_pwrite_nocancel',
+            416: 'SYS_waitid_nocancel',
+            417: 'SYS_poll_nocancel',
+            418: 'SYS_msgsnd_nocancel',
+            419: 'SYS_msgrcv_nocancel',
+            420: 'SYS_sem_wait_nocancel',
+            421: 'SYS_aio_suspend_nocancel',
+            422: 'SYS___sigwait_nocancel',
+            423: 'SYS___semwait_signal_nocancel',
+            424: 'SYS___mac_mount',
+            425: 'SYS___mac_get_mount',
+            426: 'SYS___mac_getfsstat',
+            427: 'SYS_fsgetpath',
+            428: 'SYS_audit_session_self',
+            429: 'SYS_audit_session_join',
+            430: 'SYS_fileport_makeport',
+            431: 'SYS_fileport_makefd',
+            432: 'SYS_audit_session_port',
+            433: 'SYS_pid_suspend',
+            434: 'SYS_pid_resume',
+            435: 'SYS_pid_hibernate',
+            436: 'SYS_pid_shutdown_sockets',
+            439: 'SYS_kas_info',
+            440: 'SYS_memorystatus_control',
+            441: 'SYS_guarded_open_np',
+            442: 'SYS_guarded_close_np',
+            443: 'SYS_guarded_kqueue_np',
+            444: 'SYS_change_fdguard_np',
+            445: 'SYS_usrctl',
+            446: 'SYS_proc_rlimit_control',
+            447: 'SYS_connectx',
+            448: 'SYS_disconnectx',
+            449: 'SYS_peeloff',
+            450: 'SYS_socket_delegate',
+            451: 'SYS_telemetry',
+            452: 'SYS_proc_uuid_policy',
+            453: 'SYS_memorystatus_get_level',
+            454: 'SYS_system_override',
+            455: 'SYS_vfs_purge',
+            456: 'SYS_sfi_ctl',
+            457: 'SYS_sfi_pidctl',
+            458: 'SYS_coalition',
+            459: 'SYS_coalition_info',
+            460: 'SYS_necp_match_policy',
+            461: 'SYS_getattrlistbulk',
+            462: 'SYS_clonefileat',
+            463: 'SYS_openat',
+            464: 'SYS_openat_nocancel',
+            465: 'SYS_renameat',
+            466: 'SYS_faccessat',
+            467: 'SYS_fchmodat',
+            468: 'SYS_fchownat',
+            469: 'SYS_fstatat',
+            470: 'SYS_fstatat64',
+            471: 'SYS_linkat',
+            472: 'SYS_unlinkat',
+            473: 'SYS_readlinkat',
+            474: 'SYS_symlinkat',
+            475: 'SYS_mkdirat',
+            476: 'SYS_getattrlistat',
+            477: 'SYS_proc_trace_log',
+            478: 'SYS_bsdthread_ctl',
+            479: 'SYS_openbyid_np',
+            480: 'SYS_recvmsg_x',
+            481: 'SYS_sendmsg_x',
+            482: 'SYS_thread_selfusage',
+            483: 'SYS_csrctl',
+            484: 'SYS_guarded_open_dprotected_np',
+            485: 'SYS_guarded_write_np',
+            486: 'SYS_guarded_pwrite_np',
+            487: 'SYS_guarded_writev_np',
+            488: 'SYS_renameatx_np',
+            489: 'SYS_mremap_encrypted',
+            490: 'SYS_netagent_trigger',
+            491: 'SYS_stack_snapshot_with_config',
+            492: 'SYS_microstackshot',
+            493: 'SYS_grab_pgo_data',
+            494: 'SYS_persona',
+            496: 'SYS_mach_eventlink_signal',
+            497: 'SYS_mach_eventlink_wait_until',
+            498: 'SYS_mach_eventlink_signal_wait_until',
+            499: 'SYS_work_interval_ctl',
+            500: 'SYS_getentropy',
+            501: 'SYS_necp_open',
+            502: 'SYS_necp_client_action',
+            503: 'SYS___nexus_open',
+            504: 'SYS___nexus_register',
+            505: 'SYS___nexus_deregister',
+            506: 'SYS___nexus_create',
+            507: 'SYS___nexus_destroy',
+            508: 'SYS___nexus_get_opt',
+            509: 'SYS___nexus_set_opt',
+            510: 'SYS___channel_open',
+            511: 'SYS___channel_get_info',
+            512: 'SYS___channel_sync',
+            513: 'SYS___channel_get_opt',
+            514: 'SYS___channel_set_opt',
+            515: 'SYS_ulock_wait',
+            516: 'SYS_ulock_wake',
+            517: 'SYS_fclonefileat',
+            518: 'SYS_fs_snapshot',
+            519: 'SYS_register_uexc_handler',
+            520: 'SYS_terminate_with_payload',
+            521: 'SYS_abort_with_payload',
+            522: 'SYS_necp_session_open',
+            523: 'SYS_necp_session_action',
+            524: 'SYS_setattrlistat',
+            525: 'SYS_net_qos_guideline',
+            526: 'SYS_fmount',
+            527: 'SYS_ntp_adjtime',
+            528: 'SYS_ntp_gettime',
+            529: 'SYS_os_fault_with_payload',
+            530: 'SYS_kqueue_workloop_ctl',
+            531: 'SYS___mach_bridge_remote_time',
+            532: 'SYS_coalition_ledger',
+            533: 'SYS_log_data',
+            534: 'SYS_memorystatus_available_memory',
+            535: 'SYS_objc_bp_assist_cfg_np',
+            536: 'SYS_shared_region_map_and_slide_2_np',
+            537: 'SYS_pivot_root',
+            538: 'SYS_task_inspect_for_pid',
+            539: 'SYS_task_read_for_pid',
+            540: 'SYS_preadv',
+            541: 'SYS_pwritev',
+            542: 'SYS_preadv_nocancel',
+            543: 'SYS_pwritev_nocancel',
+            544: 'SYS_ulock_wait2',
+            545: 'SYS_proc_info_extended_id',
+            546: 'SYS_tracker_action',
+            547: 'SYS_debug_syscall_reject',
+            548: 'SYS_debug_syscall_reject_config',
+            549: 'SYS_graftdmg',
+            550: 'SYS_map_with_linking_np',
+            551: 'SYS_freadlink',
+            552: 'SYS_record_system_event',
+            553: 'SYS_mkfifoat',
+            554: 'SYS_mknodat',
+            555: 'SYS_ungraftdmg'}
+
+    f.seek(offset * 8 + base_addr)
+    might_be_type = struct.unpack("<H", f.read(2))[0]
+    bitmap_length = struct.unpack("<H", f.read(2))[0]
+    bitmap = f.read(bitmap_length)
+
+    enabled_syscalls = []
+    for byte_index, byte in enumerate(bitmap):
+        for bit_position in range(0, 8, 2):
+            mask = (byte >> bit_position) & 0b11
+            if mask:
+                syscall_number = (byte_index * 8) + mask
+                syscall_name = arg_types.get(syscall_number, f"UNKNOWN_syscall_number_{syscall_number}")
+                enabled_syscalls.append(syscall_name)
+
+    return " | ".join(enabled_syscalls)
+
 def get_filter_arg_entry_attribute(f, arg):
     """Convert integer to entry attribute type string."""
     arg_types = {
@@ -840,6 +1357,87 @@ def get_filter_arg_entry_attribute(f, arg):
         return '%s' % (arg_types[arg])
     else:
         return '%d' % arg
+
+
+def get_filter_arg_machtrap_bitmask(f, offset):
+    arg_types = {
+        10: 'MSC__kernelrpc_mach_vm_allocate_trap',
+        11: 'MSC__kernelrpc_mach_vm_purgable_control_trap',
+        12: 'MSC__kernelrpc_mach_vm_deallocate_trap',
+        13: 'MSC_task_dyld_process_info_notify_get',
+        14: 'MSC__kernelrpc_mach_vm_protect_trap',
+        15: 'MSC__kernelrpc_mach_vm_map_trap',
+        16: 'MSC__kernelrpc_mach_port_allocate_trap',
+        18: 'MSC__kernelrpc_mach_port_deallocate_trap',
+        19: 'MSC__kernelrpc_mach_port_mod_refs_trap',
+        20: 'MSC__kernelrpc_mach_port_move_member_trap',
+        21: 'MSC__kernelrpc_mach_port_insert_right_trap',
+        22: 'MSC__kernelrpc_mach_port_insert_member_trap',
+        23: 'MSC__kernelrpc_mach_port_extract_member_trap',
+        24: 'MSC__kernelrpc_mach_port_construct_trap',
+        25: 'MSC__kernelrpc_mach_port_destruct_trap',
+        26: 'MSC_mach_reply_port',
+        27: 'MSC_thread_self_trap',
+        28: 'MSC_task_self_trap',
+        29: 'MSC_host_self_trap',
+        31: 'MSC_mach_msg_trap',
+        32: 'MSC_mach_msg_overwrite_trap',
+        33: 'MSC_semaphore_signal_trap',
+        34: 'MSC_semaphore_signal_all_trap',
+        35: 'MSC_semaphore_signal_thread_trap',
+        36: 'MSC_semaphore_wait_trap',
+        37: 'MSC_semaphore_wait_signal_trap',
+        38: 'MSC_semaphore_timedwait_trap',
+        39: 'MSC_semaphore_timedwait_signal_trap',
+        40: 'MSC__kernelrpc_mach_port_get_attributes_trap',
+        41: 'MSC__kernelrpc_mach_port_guard_trap',
+        42: 'MSC__kernelrpc_mach_port_unguard_trap',
+        43: 'MSC_mach_generate_activity_id',
+        44: 'MSC_task_name_for_pid',
+        45: 'MSC_task_for_pid',
+        46: 'MSC_pid_for_task',
+        47: 'MSC_mach_msg2_trap',
+        48: 'MSC_macx_swapon',
+        49: 'MSC_macx_swapoff',
+        50: 'MSC_thread_get_special_reply_port',
+        51: 'MSC_macx_triggers',
+        52: 'MSC_macx_backing_store_suspend',
+        53: 'MSC_macx_backing_store_recovery',
+        58: 'MSC_pfz_exit',
+        59: 'MSC_swtch_pri',
+        60: 'MSC_swtch',
+        61: 'MSC_syscall_thread_switch',
+        62: 'MSC_clock_sleep_trap',
+        70: 'MSC_host_create_mach_voucher_trap',
+        72: 'MSC_mach_voucher_extract_attr_recipe_trap',
+        76: 'MSC__kernelrpc_mach_port_type_trap',
+        77: 'MSC__kernelrpc_mach_port_request_notification_trap',
+        89: 'MSC_mach_timebase_info_trap',
+        90: 'MSC_mach_wait_until',
+        91: 'MSC_mk_timer_create',
+        92: 'MSC_mk_timer_destroy',
+        93: 'MSC_mk_timer_arm',
+        94: 'MSC_mk_timer_cancel',
+        95: 'MSC_mk_timer_arm_leeway',
+        96: 'MSC_debug_control_port_for_pid',
+        100: 'MSC_iokit_user_client_trap'
+    }
+
+    f.seek(offset * 8 + base_addr)
+    might_be_type = struct.unpack("<H", f.read(2))[0]
+    bitmap_length = struct.unpack("<H", f.read(2))[0]
+    bitmap = f.read(bitmap_length)
+
+    enabled_syscalls = []
+    for byte_index, byte in enumerate(bitmap):
+        for bit_position in range(0, 8, 2):
+            mask = (byte >> bit_position) & 0b11
+            if mask:
+                syscall_number = (byte_index * 8) + mask
+                syscall_name = arg_types.get(syscall_number, f"machtrap_number_{syscall_number}")
+                enabled_syscalls.append(syscall_name)
+
+    return " | ".join(enabled_syscalls)
 
 def get_filter_arg_machtrap_number(f, arg):
     """Convert integer to machtrap number type string."""
@@ -1256,6 +1854,47 @@ def get_filter_arg_kernel_mig_routine(f, arg):
     else:
         return '%d' % arg
 
+def get_filter_arg_fnctl_bitmask(f, offset):
+    """Convert integer to fnctl bitmask string."""
+    bitmask_types = {
+            0x0001: 'F_RDLCK',
+            0x0002: 'F_UNLCK',
+            0x0003: 'F_WRLCK',
+            0x0010: 'F_SETLK',
+            0x0011: 'F_SETLKW',
+            0x0012: 'F_GETLK',
+            0x0040: 'F_GETLK64',
+            0x0041: 'F_SETLK64',
+            0x0042: 'F_SETLKW64',
+            0x0080: 'F_OFD_GETLK',
+            0x0081: 'F_OFD_SETLK',
+            0x0082: 'F_OFD_SETLKW',
+            0x0100: 'F_CANCELLK',
+            0x0200: 'F_PREPEND',
+            0x0400: 'F_APPEND',
+            0x0800: 'F_WAIT',
+            0x1000: 'F_FLOCK',
+            0x2000: 'F_SHARE',
+            0x4000: 'F_EXCL',
+            0x8000: 'F_NBMAND'
+            }
+
+    f.seek(offset * 8 + base_addr)
+    might_be_type = struct.unpack("<H", f.read(2))[0]
+    bitmap_length = struct.unpack("<H", f.read(2))[0]
+    bitmap = f.read(bitmap_length)
+
+    enabled_syscalls = []
+    for byte_index, byte in enumerate(bitmap):
+        for bit_position in range(0, 8, 2):
+            mask = (byte >> bit_position) & 0b11
+            if mask:
+                syscall_number = (byte_index * 8) + mask
+                syscall_name = bitmask_types.get(syscall_number, f"fnctl_number_{syscall_number}")
+                enabled_syscalls.append(syscall_name)
+
+    return " | ".join(enabled_syscalls)
+
 def get_filter_arg_fcntl(f, arg):
     """Convert integer to fcntl type string."""
     arg_types = {
@@ -1579,6 +2218,86 @@ def get_filter_arg_memorystatus_control(f, arg):
     else:
         return '%d' % arg
 
+
+def get_filter_arg_mach_exception_type(f, arg):
+    """Convert integer to mach exception type string."""
+    arg_types = {
+        1: 'EXC_BAD_ACCESS',
+        2: 'EXC_BAD_INSTRUCTION',
+        3: 'EXC_ARITHMETIC',
+        4: 'EXC_EMULATION',
+        5: 'EXC_SOFTWARE',
+        6: 'EXC_BREAKPOINT',
+        7: 'EXC_SYSCALL',
+        8: 'EXC_MACH_SYSCALL',
+        9: 'EXC_RPC_ALERT',
+        10: 'EXC_CRASH',
+        11: 'EXC_RESOURCE',
+        12: 'EXC_GUARD',
+        13: 'EXC_CORPSE_NOTIFY',
+    }
+    if arg in arg_types.keys():
+        return '%s' % (arg_types[arg])
+    else:
+        return '%d' % arg
+
+
+def get_filter_arg_mach_exception_behavior(f, arg):
+    """Convert integer to mach exception behavior type string."""
+    arg_types = {
+            1: 'EXCEPTION_DEFAULT',
+            2: 'EXCEPTION_STATE',
+            3: 'EXCEPTION_STATE_IDENTITY',
+            4: 'EXCEPTION_IDENTITY_PROTECTED',
+            5: 'EXCEPTION_STATE_IDENTITY_PROTECTED',
+            }
+    if arg in arg_types.keys():
+        return '%s' % (arg_types[arg])
+    else:
+        return '%d' % arg
+
+
+def get_filter_arg_kas_info_selector(f, arg):
+    """Convert integer to kas_info selector type string."""
+    arg_types = {
+            0: 'KAS_INFO_KERNEL_TEXT_SLIDE_SELECTOR',
+            1: 'KAS_INFO_KERNEL_SEGMENT_VMADDR_SELECTOR',
+            2: 'KAS_INFO_SPTM_TEXT_SLIDE_SELECTOR',
+            3: 'KAS_INFO_TXM_TEXT_SLIDE_SELECTOR',
+            }
+    if arg in arg_types.keys():
+        return '%s' % (arg_types[arg])
+    else:
+        return '%d' % arg
+
+
+def get_filter_arg_codesigning_operation(f, arg):
+    """Convert integer to codesigning-operation type string."""
+    arg_types = {
+            0: 'CS_OPS_STATUS',
+            1: 'CS_OPS_MARKINVALID',
+            2: 'CS_OPS_MARKHARD',
+            3: 'CS_OPS_MARKKILL',
+            5: 'CS_OPS_CDHASH',
+            6: 'CS_OPS_PIDOFFSET',
+            7: 'CS_OPS_ENTITLEMENTS_BLOB',
+            8: 'CS_OPS_MARKRESTRICT',
+            9: 'CS_OPS_SET_STATUS',
+            10: 'CS_OPS_BLOB',
+            11: 'CS_OPS_IDENTITY',
+            12: 'CS_OPS_CLEARINSTALLER',
+            13: 'CS_OPS_CLEARPLATFORM',
+            14: 'CS_OPS_TEAMID',
+            15: 'CS_OPS_CLEAR_LV',
+            16: 'CS_OPS_DER_ENTITLEMENTS_BLOB',
+            17: 'CS_OPS_VALIDATION_CATEGORY'
+            }
+    if arg in arg_types.keys():
+        return '%s' % (arg_types[arg])
+    else:
+        return '%d' % arg
+
+
 def get_filter_arg_task_special_port(f, arg):
     """Convert integer to task_special_port type string."""
     arg_types = {
@@ -1850,6 +2569,7 @@ def convert_filter_callback(f, sandbox_data, keep_builtin_filters_arg, filter_id
             logger.warn("result of calling string offset for filter {} is none".format(filter_id))
             return (None, None)
         return (filter["name"] + ("-" if len(filter["name"]) else "") + append, result)
+
     result = globals()[filter["arg_process_fn"]](f, filter_arg)
     if result == None and filter["name"] != "debug-mode":
         logger.warn("result of calling arg_process_fn for filter {} is none".format(filter_id))
@@ -1888,7 +2608,7 @@ def convert_modifier_callback(f, sandbox_data, modifier_id, modifier_argument):
     base_addr = sandbox_data.base_addr
 
     if not Modifiers.exists(modifier_id):
-        return "== NEED TO ADD MODIFIER"
+        return "== NEED TO ADD MODIFIERS SUPPORT"
     modifier_func = Modifiers.get(modifier_id)
 
     if modifier_func["arg_process_fn"] == "get_filter_arg_string_by_offset_with_type":

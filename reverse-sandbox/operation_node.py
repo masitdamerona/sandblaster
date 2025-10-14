@@ -35,6 +35,8 @@ class TerminalNode():
 
     TERMINAL_NODE_TYPE_ALLOW = 0x00
     TERMINAL_NODE_TYPE_DENY = 0x01
+    TERMINAL_NODE_TYPE_AUTOBOX = 0x1000
+    TERMINAL_NODE_TYPE_DELEGATE = 0x0400
 
     INLINE_MODIFIERS = "inline_modifiers"
     FLAGS_MODIFIERS = "flags_modifiers"
@@ -63,6 +65,10 @@ class TerminalNode():
             ret += "allow"
         elif self.type == self.TERMINAL_NODE_TYPE_DENY:
             ret += "deny"
+        elif self.type == self.TERMINAL_NODE_TYPE_AUTOBOX:
+            ret += "autobox"
+        elif self.type == self.TERMINAL_NODE_TYPE_DELEGATE:
+            ret += "delegate"
         else:
             ret += "unknown"
 
@@ -82,11 +88,15 @@ class TerminalNode():
         
     def c_repr(self):
         ret = ""
-        assert self.type == (self.parent.raw[1] & 1)
+
         if self.type == self.TERMINAL_NODE_TYPE_ALLOW:
             ret += 'return allow("'
         elif self.type == self.TERMINAL_NODE_TYPE_DENY:
             ret += 'return deny("'
+        elif self.type == self.TERMINAL_NODE_TYPE_AUTOBOX:
+            ret += 'return autobox("'
+        elif self.type == self.TERMINAL_NODE_TYPE_DELEGATE:
+            ret += 'return delegate("'
         else:
             ret += 'return unknown("'
 
@@ -131,6 +141,8 @@ class TerminalNode():
                     continue
                 if modifier['name'] == "no-report" and self.is_allow(): # report is default for allow
                     continue
+                if modifier['name'] == "restrictive-default" and not self.is_autobox(): # report is default for allow
+                    continue
                 # need to add no-report
                 modifiers.append(modifier)
 
@@ -143,7 +155,7 @@ class TerminalNode():
                 self.ss = sandbox_filter.convert_modifier_callback(infile, sandbox_data, self.inline_modifier.id, self.inline_modifier.argument)
             else:
                 self.operation_name = sandbox_data.sb_ops[self.inline_modifier.policy_op_idx]
-                self.inline_operation_node = sandbox_data.operation_nodes[sandbox_data.policies[self.inline_modifier.argument]]
+                # self.inline_operation_node = sandbox_data.operation_nodes[sandbox_data.policies[self.inline_modifier.argument]]
 
         self.db_modifiers[self.FLAGS_MODIFIERS].extend(self.get_modifiers_by_flag(self.modifier.flags))
         self.parsed = True
@@ -158,6 +170,11 @@ class TerminalNode():
     def is_deny(self):
         return self.type == self.TERMINAL_NODE_TYPE_DENY
 
+    def is_autobox(self):
+        return self.type == self.TERMINAL_NODE_TYPE_AUTOBOX
+
+    def is_delegate(self):
+        return self.type == self.TERMINAL_NODE_TYPE_DELEGATE
 
 class NonTerminalNode():
     """Intermediary node consisting of a filter to match
@@ -556,6 +573,11 @@ class OperationNode():
             self.terminal.inline_modifier = InlineModifier(self.raw[4], self.raw[5], self.raw[6] + (self.raw[7] << 8))
 
         self.terminal.modifier = Modifier(self.terminal.modifier_flags, self.raw[4], self.raw[5], self.raw[6] + (self.raw[7] << 8))
+        # if self.terminal.modifier_flags == 0x1000:
+        if self.raw[2] & 16:
+            self.terminal.type = self.terminal.TERMINAL_NODE_TYPE_AUTOBOX
+        if self.raw[2] & 4:
+            self.terminal.type = self.terminal.TERMINAL_NODE_TYPE_DELEGATE
 
 
     def parse_non_terminal(self):

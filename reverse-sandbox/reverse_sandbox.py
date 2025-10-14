@@ -32,7 +32,7 @@ NUM_PROFILES_OFFSET = 10
 logging.config.fileConfig("logger.config")
 logger = logging.getLogger(__name__)
 
-ios16_5_struct = struct.Struct('<HHBBBxHHH')
+ios16_5_struct = struct.Struct('<HHBBBxHHHH')
 PROFILE_OPS_OFFSET = 4
 OPERATION_NODE_SIZE = 8
 INDEX_SIZE = 2
