@@ -5,11 +5,14 @@
 
 This fork was updated to work on iOS 16.5 and iOS 17 beta.
 
+Branch iOS18Plus is updated to support iOS 18 and iOS 26.
+
 Authored by Yarden Hamami of Cellebrite Labs.
 
 ## Description
 SandBlaster is a tool for reversing (decompiling) binary Apple sandbox profiles. Apple sandbox profiles are written in SBPL (*Sandbox Profile Language*), a Scheme-like language, and are then compiled into an undocumented binary format and shipped. Primarily used on iOS, sandbox profiles are present on macOS as well. SandBlaster is, to our knowledge, the first tool that reverses binary sandbox profiles to their original SBPL format. SandBlaster works on iOS from version 7 onwards including iOS 11.
 This fork only supports iOS 16.5 and iOS 17 beta.
+Branch iOS18Plus is updated to support iOS 18 and iOS 26.
 
 The technical report [SandBlaster: Reversing the Apple Sandbox](https://arxiv.org/abs/1608.04303) presents extensive (though a bit outdated) information on SandBlaster internals.
 
