@@ -29,7 +29,7 @@ SandBlaster requires Python3 for the reverser (in `reverse-sandbox/`).
   * Download the kernel cache
   * Extract the sandbox profiles (using Unicorn emulator)
   * And decompile them all in one go!
-* Just make sure to `pip install 'unicorn<2.1'` beforehand (seems like 2.1 has an issue on ARM macOS currently).
+* Just make sure to `pip install 'unicorn'`
 * Run `./helpers/extract_sb.py --version 17.6`
 
 ## Usage
