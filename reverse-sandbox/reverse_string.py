@@ -234,8 +234,10 @@ class SandboxString:
                 logger.debug("state is STATE_CONSTANT_READ")
                 b = rss.get_last_byte()
                 if b >= 0x10 and b < 0x3f:
-                    rss.token = "${" + global_vars[b-0x10] + "}"
-                    # rss.token = "${" + " ".join(global_vars) + "_parsing_issue" + "}"
+                    try:
+                        rss.token = "${" + global_vars[b-0x10] + "}"
+                    except:
+                        rss.token = "${_global_vars_parsing_issue}"
                 b = rss.get_next_byte()
                 rss.update_state(b)
             elif rss.state == rss.STATE_CONCAT_BYTE_READ:

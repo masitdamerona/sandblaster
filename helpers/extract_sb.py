@@ -239,7 +239,7 @@ class Sandbox:
         if skip_decompile:
             print(f"Skipping decompilation for {name}")
         else:
-            args = ["python3", "./reverse_sandbox.py", "--release", str(self.version), "--operations",
+            args = ["python3", "./reverse_sandbox.py", "-c", "-m", "--release", str(self.version), "--operations",
                     self.ops_file.absolute(), "--directory", out_dir.absolute(), filepath.absolute()]
             print(f"running: {args}")
             if subprocess.call(args, cwd=Path(__file__).parents[1] / "reverse-sandbox"):
