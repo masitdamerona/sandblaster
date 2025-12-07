@@ -3,9 +3,8 @@
 
 ## Cellebrite Fork
 
-This fork was updated to work on iOS 16.5 and iOS 17 beta.
+This fork was updated to work on iOS 18 and iOS 26.
 
-Branch iOS18Plus is updated to support iOS 18 and iOS 26.
 
 Authored by Yarden Hamami of Cellebrite Labs.
 
