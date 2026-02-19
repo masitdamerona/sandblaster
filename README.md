@@ -1,69 +1,246 @@
 # SandBlaster: Reversing the Apple Sandbox
 
-
 ## Cellebrite Fork
 
 This fork was updated to work on iOS 18 and iOS 26.
 
-
 Authored by Yarden Hamami of Cellebrite Labs.
 
 ## Description
-SandBlaster is a tool for reversing (decompiling) binary Apple sandbox profiles. Apple sandbox profiles are written in SBPL (*Sandbox Profile Language*), a Scheme-like language, and are then compiled into an undocumented binary format and shipped. Primarily used on iOS, sandbox profiles are present on macOS as well. SandBlaster is, to our knowledge, the first tool that reverses binary sandbox profiles to their original SBPL format. SandBlaster works on iOS from version 7 onwards including iOS 11.
-This fork only supports iOS 16.5 and iOS 17 beta.
-Branch iOS18Plus is updated to support iOS 18 and iOS 26.
 
-The technical report [SandBlaster: Reversing the Apple Sandbox](https://arxiv.org/abs/1608.04303) presents extensive (though a bit outdated) information on SandBlaster internals.
+SandBlaster is a tool for reversing (decompiling) binary Apple sandbox profiles. Apple sandbox profiles are written in SBPL (*Sandbox Profile Language*), a Scheme-like language, and are then compiled into an undocumented binary format and shipped. Primarily used on iOS, sandbox profiles are present on macOS as well.
+
+The technical report [SandBlaster: Reversing the Apple Sandbox](https://arxiv.org/abs/1608.04303) presents extensive information on SandBlaster internals.
 
 SandBlaster relied on previous work by [Dionysus Blazakis](https://github.com/dionthegod/XNUSandbox) and Stefan Esser's [code](https://github.com/sektioneins/sandbox_toolkit) and [slides](https://www.slideshare.net/i0n1c/ruxcon-2014-stefan-esser-ios8-containers-sandboxes-and-entitlements).
 
-The reverser (in the `reverse-sandbox/` folder) runs on any Python running platform.
+---
+
+## Supported iOS Versions and Branches
+
+| Branch | Supported Versions |
+|--------|--------------------|
+| `master` | iOS 16.5, iOS 17.x |
+| `iOS18Plus` | iOS 18.x, iOS 26.x |
+
+> Select the branch that matches your target iOS version.
+
+---
 
 ## Installation
 
-SandBlaster requires Python3 for the reverser (in `reverse-sandbox/`).
+### Dependencies
 
-## Automated Usage
-* You can use the helper in `helpers/extract_sb.py` to:
-  * Download the kernel cache
-  * Extract the sandbox profiles (using Unicorn emulator)
-  * And decompile them all in one go!
-* Just make sure to `pip install 'unicorn'`
-* Run `./helpers/extract_sb.py --version 17.6`
+```bash
+# Python package
+pip install unicorn
 
-## Usage
-
-In order to use SandBlaster you need access to the binary sandbox profiles and the sandbox operations, a set of strings that define sandbox-specific actions. Sandbox profiles and sandbox operations are extracted from the kernel sandbox extension.
-
-```
-# Reverse all binary sandbox profiles.
-cd ../reverse-sandbox/
-mkdir iPad2,1_8.4.1_12H321.reversed_profiles
-python3 reverse_sandbox.py -r 17 -o sandbox_operations sandbox_binary_profile -d output_directory/ 
-# Generate mach-o output
-python3 reverse_sandbox.py -r 17 -c -m -o sandbox_operations sandbox_binary_profile -d output_directory/ 
+# ipsw CLI (kernel cache download and analysis)
+brew install blacktop/tap/ipsw
 ```
 
-The `-psb` option for `reverse_sandbox.py` prints out the sandbox profiles part of a sandbox bundle without doing the actual reversing.
+- **unicorn**: ARM64 emulator. Used to emulate kext code and locate sandbox profile binaries in memory.
+- **ipsw**: Used to download kernel caches, extract kexts, and disassemble binaries.
 
-The `reverse_sandbox.py` script needs to be run in its directory (`reverse-sandbox/`) since it needs the other Python modules and the `logger.config` file.
+---
 
-## Internals
+## Method 1: Automated Extraction (Recommended)
 
-The actual reverser is part of the `reverse-sandbox/` folder. Files here can be categorized as follows:
+`helpers/extract_sb.py` automates the entire pipeline in a single command.
 
-  * The main script is `reverse_sandbox.py`. It parses the command line arguments, does basic parsing of the input binary file (extracts sections) and calls the appropriate functions from the other modules.
-  * The core of the implementation is `operation_node.py`. It provides functions to build the rules graph corresponding to the sandbox profile and to convert the graph to SBPL. It is called by `reverse_sandbox.py`.
-  * Sandbox filters (i.e. match rules inside sandbox profiles) are handled by the implementation in `sandbox_filter.py` and the configuration in `filters.json`, `filter_list.py` and `filters.py`. Filter specific functions are called by `operation_node.py`.
-  * Regular expression reversing is handled by `sandbox_regex.py` and `regex_parse.py`. `regex_parse.py` is the back end parser that converts the binary representation to a basic graph. `sandbox_regex.py` converts the graph representation (an automaton) to an actual regular expression (i.e. a string of characters and metacharacters). It is called by `reverse_sandbox.py` for parsing regular expressions, with the resulting regular expression list being passed to the functions exposed by `operation_node.py`; `operation_node.py` passes them on to sandbox filter handling files.
-  * The new format for storing strings since iOS 10 is handled by `reverse_string.py`. The primary `SandboxString` class in `reverse_string.py` is used in `sandbox_filter.py`.
-  * Logging is configured in the `logger.config` file. By default, `INFO` and higher level messages are printed to the console, while `DEBUG` and higher level messages are printed to the `reverse.log` file.
-  
-## C and Mach-O output
+### How It Works
 
-SandBlaster supports decompilation of the sandbox into a C file (`-c`/`--c_output`) rather than Apple's Scheme format. Each operation name is now a function, with `*` being replaced with `$` in function names. While the C output itself is not very readable, it can be compiled into a native executable file (Either manually or by using the `-m`/`--macho` flag), which can be decompiled once more using Hex-Rays Decompiler or a similar decompiler. 
+```
+1. Download the kernel cache for the specified device and version via ipsw
+2. Extract the com.apple.security.sandbox kext from the kernel cache
+3. Disassemble the kext and locate the profile-loading code for each profile
+4. Emulate the loading code with Unicorn to resolve each profile's address and size
+5. Dump the profile binary using ipsw macho dump (saved as .bin)
+6. Invoke reverse_sandbox.py to decompile the binary
+7. Write the output file (.sb by default, or .c / Mach-O depending on options)
+```
 
-Example output from Hex-Rays:
+Profiles extracted:
+- `builtin collection`
+- `autobox collection` (iOS 18+) / `protobox collection` (iOS 17 and below)
+- `platform collection`
+
+### Usage
+
+```bash
+# Default — produce SBPL (.sb) files
+python3 helpers/extract_sb.py --device iPhone16,1 --version 17.6.1
+
+# Generate C output
+python3 helpers/extract_sb.py --device iPhone16,1 --version 17.6.1 --c-output
+
+# Generate Mach-O binary (implies --c-output)
+python3 helpers/extract_sb.py --device iPhone16,1 --version 17.6.1 --macho
+
+# Skip decompilation — extract binaries only
+python3 helpers/extract_sb.py --device iPhone16,1 --version 17.6.1 --skip-decompile
+```
+
+### Options
+
+| Option | Short | Default | Description |
+|--------|-------|---------|-------------|
+| `--device` | `-d` | `iPhone16,1` | Device identifier |
+| `--version` | `-v` | `17.6.1` | iOS version |
+| `--skip-decompile` | `-s` | `False` | Skip decompilation, extract binaries only |
+| `--c-output` | `-c` | `False` | Generate `.c` file instead of `.sb` |
+| `--macho` | `-m` | `False` | Compile `.c` into a Mach-O binary (implies `-c`) |
+
+### Version Specification
+
+> **Always specify the exact version including the minor version.**
+
+```bash
+# Correct
+--version 17.6.1
+--version 18.0 beta 4
+
+# Not recommended
+--version 17        # Downloads all builds (beta, RC, release) for major version
+--version 17.6      # Downloads all builds for that minor version
+```
+
+Additional notes:
+- The device identifier must contain `iPhone` (e.g. `iPhone16,1`, `iPhone14,2`).
+- If the kernel cache already exists locally, path parsing may fail. Use Method 2 in that case.
+
+---
+
+## Method 2: Manual Extraction
+
+Use this method when you already have the binary profile and operations file, or when automated extraction fails.
+
+### How It Works
+
+```
+1. Parse the binary sandbox profile header to extract layout offsets
+2. Build the operation node graph for each operation
+3. Reduce the graph and convert it to SBPL text (or C)
+4. Write the output file(s)
+```
+
+### Important
+
+`reverse_sandbox.py` **must be run from within the `reverse-sandbox/` directory**. It references sibling Python modules (`operation_node.py`, `sandbox_filter.py`, etc.) and `logger.config` using relative paths.
+
+```bash
+cd reverse-sandbox/
+
+# SBPL output
+python3 reverse_sandbox.py \
+    --release 17 \
+    --operations_file /path/to/operations.txt \
+    --directory /path/to/output/ \
+    /path/to/profile.bin
+
+# C file output
+python3 reverse_sandbox.py \
+    --release 17 \
+    -c \
+    --operations_file /path/to/operations.txt \
+    --directory /path/to/output/ \
+    /path/to/profile.bin
+
+# Mach-O binary (requires clang)
+python3 reverse_sandbox.py \
+    --release 17 \
+    -c -m \
+    --operations_file /path/to/operations.txt \
+    --directory /path/to/output/ \
+    /path/to/profile.bin
+
+# Reverse specific operations only
+python3 reverse_sandbox.py \
+    --release 17 \
+    --operations_file /path/to/operations.txt \
+    --directory /path/to/output/ \
+    -n network-inbound network-outbound \
+    /path/to/profile.bin
+
+# Reverse a specific profile from a bundle
+python3 reverse_sandbox.py \
+    --release 17 \
+    --operations_file /path/to/operations.txt \
+    --directory /path/to/output/ \
+    -p container \
+    /path/to/sandbox_bundle.bin
+```
+
+### Options
+
+| Option | Short | Required | Description |
+|--------|-------|----------|-------------|
+| `filename` | — | Yes | Path to the binary sandbox profile |
+| `--release` | `-r` | Yes | iOS major version (e.g. `17`, `18`) |
+| `--operations_file` | `-o` | Yes | File containing the list of sandbox operations |
+| `--directory` | `-d` | No | Output directory (default: current directory) |
+| `--profile` | `-p` | No | Profile name to reverse (for bundles) |
+| `--operation` | `-n` | No | Specific operation(s) to reverse |
+| `--print_sandbox_profiles` | `-psb` | No | Print profile list from a bundle (iOS 9+) |
+| `--keep_builtin_filters` | `-kbf` | No | Keep builtin filters in the output |
+| `--c_output` | `-c` | No | Generate `.c` file instead of `.sb` |
+| `--macho` | `-m` | No | Compile `.c` into a Mach-O binary (implies `-c`) |
+
+---
+
+## Output
+
+### SBPL Mode (Default)
+
+A directory is created for each profile containing the raw binary and the decompiled `.sb` file.
+
+```
+<kext_directory>/
+├── operations.txt
+├── builtin_collection/
+│   ├── builtin_collection.bin
+│   └── builtin_collection.sb
+├── autobox_collection/
+│   ├── autobox_collection.bin
+│   └── autobox_collection.sb
+└── platform_collection/
+    ├── platform_collection.bin
+    └── platform_collection.sb
+```
+
+Example `.sb` content:
+
+```scheme
+(version 1)
+(deny default)
+(allow file-read-metadata
+    (literal "/"))
+(allow network-outbound
+    (remote tcp))
+```
+
+### C Mode (`-c`)
+
+A `.c` file is produced instead of `.sb`. Each sandbox operation is represented as a C function. Operation names containing `*` are replaced with `$`, and `-` with `_`.
+
+```c
+extern long allow(const char *);
+extern long deny(const char *);
+...
+
+long file_read_metadata()
+{
+    if (literal("/")) return allow("");
+    ...
+}
+```
+
+### Mach-O Mode (`-m`)
+
+The `.c` file is compiled with `clang -O0` into a Mach-O binary alongside the `.c` file. The binary can be loaded into a decompiler such as Hex-Rays for further analysis.
+
+Example Hex-Rays output:
+
 ```c
 long dynamic_code_generation()
 {
@@ -73,34 +250,53 @@ long dynamic_code_generation()
     return deny("message 'MAP_JIT requires sandboxing'");
   return allow("");
 }
-
-...
-
-long file_write_data()
-{
-  if ( file_attribute("sip-protected") )
-    return deny("sip-override");
-  if ( storage_class_extension("0") )
-    return allow("");
-  if ( file_attribute("datavault") )
-    return deny("sip-override");
-  if ( storage_class("MobileBackup") )
-  {
-    if ( !process_attribute("is-initproc")
-      && !process_attribute("is-installer")
-      && !signing_identifier("com.apple.filecoordinationd")
-      && !entitlement_is_bool_true("com.apple.private.security.storage.MobileBackup") )
-    {
-      return deny("sip-override");
-    }
-    goto node_835;
-  }
-  if ( storage_class("MobileStorageMounter") )
-  {
-     ...
-
 ```
 
-## Supported iOS Versions
+### Metadata File (Bundle Profiles)
 
-This fork only supports iOS 16.5 and iOS 17 sandbox format.
+When processing a bundle (`type == 0x8000`), a `.metadata` file is written alongside each profile output:
+
+```
+base_profile: <parent profile name>
+
+states_flag: 0x...
+
+policies:
+    [...]
+
+states:
+    [...]
+```
+
+### Logging
+
+- **Console**: `INFO` level and above
+- **File**: `reverse-sandbox/reverse.log` — `DEBUG` level and above
+
+---
+
+## Project Structure
+
+```
+sandblaster/
+├── helpers/
+│   └── extract_sb.py          # Automated helper: download → extract → decompile
+└── reverse-sandbox/
+    ├── reverse_sandbox.py     # Main script: CLI parsing, binary parsing, orchestration
+    ├── operation_node.py      # Core: operation node graph construction and SBPL conversion
+    ├── sandbox_filter.py      # Filter (match rule) handling
+    ├── filters.py             # Filter definitions
+    ├── filters.json           # Filter configuration
+    ├── sandbox_regex.py       # Regex automaton to string conversion
+    ├── regex_parser.py        # Binary regex parsing
+    ├── reverse_string.py      # iOS 10+ string format handling
+    ├── modifiers.py           # Modifier definitions
+    ├── modifiers.json         # Modifier configuration
+    └── logger.config          # Logging configuration
+```
+
+---
+
+## License
+
+BSD 3-Clause License. Copyright (c) 2016, North Carolina State University and University POLITEHNICA of Bucharest.
