@@ -217,7 +217,10 @@ def process_profile(infile, outfname, sb_ops, ops_to_reverse, op_table, operatio
                 outfile.write("extern long %s%s();\n" % (name.replace("-", "_"), suffix))
     else:
         outfile.write("(version 1)\n")
-        outfile.write("(%s default)\n" % (default_node.terminal))
+        if default_node.terminal:
+            outfile.write("(%s default)\n" % (default_node.terminal))
+        else:
+            outfile.write("(deny default)\n")
     
     # For each operation expand operation node.
     for idx in range(1, len(op_table)):
@@ -243,10 +246,12 @@ def process_profile(infile, outfname, sb_ops, ops_to_reverse, op_table, operatio
         if g:
             rg = operation_node.reduce_operation_node_graph(g)
             rg.str_simple_with_metanodes()
-            rg.print_vertices_with_operation_metanodes(operation, default_node.terminal.is_allow(), outfile)
+            default_is_allow = default_node.terminal.is_allow() if default_node.terminal else False
+            rg.print_vertices_with_operation_metanodes(operation, default_is_allow, outfile)
         else:
             if node.terminal:
-                if node.terminal.type != default_node.terminal.type:
+                default_type = default_node.terminal.type if default_node.terminal else None
+                if node.terminal.type != default_type:
                     outfile.write("(%s %s)\n" % (node.terminal, operation))
                 else:
                     modifiers_type = [key for key, val in node.terminal.db_modifiers.items() if len(val)]

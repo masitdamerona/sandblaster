@@ -226,7 +226,7 @@ class Sandbox:
             raise Exception("Couldn't find sandbox operations?")
         print(f"Found {len(ops)} operations. {','.join(ops[0:3])}...{ops[-1]}.")
         return ops
-    def decompile_sb(self, name, sb_bin=None, skip_decompile=False):
+    def decompile_sb(self, name, sb_bin=None, skip_decompile=False, c_output=False, macho=False):
         sb_bin = sb_bin or self.get_profile_bytes(name)
 
         filename = name.replace(" ", "_")
@@ -239,24 +239,28 @@ class Sandbox:
         if skip_decompile:
             print(f"Skipping decompilation for {name}")
         else:
-            args = ["python3", "./reverse_sandbox.py", "-c", "-m", "--release", str(self.version), "--operations",
+            args = ["python3", "./reverse_sandbox.py", "--release", str(self.version), "--operations",
                     self.ops_file.absolute(), "--directory", out_dir.absolute(), filepath.absolute()]
+            if c_output or macho:
+                args += ["-c"]
+            if macho:
+                args += ["-m"]
             print(f"running: {args}")
             if subprocess.call(args, cwd=Path(__file__).parents[1] / "reverse-sandbox"):
                 print(f"ERROR: failed to decompile {name} profile")
 
-    def decompile_all(self, skip_decompile=False):
+    def decompile_all(self, skip_decompile=False, c_output=False, macho=False):
         self.ops_file = self.macho.parent / "operations.txt"
         ops = self.get_operations()
         with open(self.ops_file, "w") as f:
             f.write("\n".join(ops))
 
-        self.decompile_sb("builtin collection", skip_decompile=skip_decompile)
+        self.decompile_sb("builtin collection", skip_decompile=skip_decompile, c_output=c_output, macho=macho)
         protobox_name = "autobox collection" if self.version >= 18 else "protobox collection"
-        self.decompile_sb(protobox_name, skip_decompile=skip_decompile)
+        self.decompile_sb(protobox_name, skip_decompile=skip_decompile, c_output=c_output, macho=macho)
 
         platform_sb = self.get_platform_profile_bytes()
-        self.decompile_sb("platform collection", platform_sb, skip_decompile=skip_decompile)
+        self.decompile_sb("platform collection", platform_sb, skip_decompile=skip_decompile, c_output=c_output, macho=macho)
 
 
 def main():
@@ -264,7 +268,11 @@ def main():
                             description="Specify device+version, and this script will do the entire process: Download the kernel cache, extract the sandbox profiles, and run the decompiler.")
     parser.add_argument("--device", "-d", help="Device", default="iPhone16,1")
     parser.add_argument("--version", "-v", help="Version, can specify a beta like '18.0 beta 4'", default="17.6.1")
-    parser.add_argument("--skip-decompile", "-s", help="Skip sandbox decompilation (currently unsupported on iOS 18)",
+    parser.add_argument("--skip-decompile", "-s", help="Skip sandbox decompilation",
+                        default=False, action="store_true")
+    parser.add_argument("--c-output", "-c", help="Generate C file output",
+                        default=False, action="store_true")
+    parser.add_argument("--macho", "-m", help="Generate Mach-O binary (implies --c-output)",
                         default=False, action="store_true")
 
     args = parser.parse_args()
@@ -276,7 +284,7 @@ def main():
 
     sb = Sandbox(k, release)
 
-    sb.decompile_all(skip_decompile=args.skip_decompile)
+    sb.decompile_all(skip_decompile=args.skip_decompile, c_output=args.c_output, macho=args.macho)
 
 
 if __name__ == "__main__":

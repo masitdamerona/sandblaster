@@ -729,7 +729,11 @@ def ong_add_to_parent_path(g, node, parent_node, nodes_to_process):
 def build_operation_node_graph(node, default_node):
     if node.is_terminal():
         return None
-    
+
+    # If default node has no terminal (e.g. it is non-terminal), we cannot build the graph.
+    if not default_node.terminal:
+        return None
+
     # If node is non-terminal and has already been processed, then it's a jump rule to a previous operation.
     if has_been_processed(node):
         return None
@@ -746,7 +750,7 @@ def build_operation_node_graph(node, default_node):
         if not parent_node:
             g[current_node]["type"].add("start")
 
-        if default_node.terminal.is_deny():
+        if default_node.terminal.is_deny() or default_node.terminal.is_delegate() or default_node.terminal.is_autobox():
             # In case of non-terminal match and deny as unmatch, add match to path.
             if current_node.non_terminal.is_non_terminal_deny():
                 ong_add_to_path(g, current_node, parent_node, nodes_to_process)
